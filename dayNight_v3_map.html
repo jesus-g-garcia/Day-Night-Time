@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day/Night Map Plotter (v3 HTML)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    :root {
+      --bg: #0f1418;
+      --bg2: #182129;
+      --bg3: #12181e;
+      --panel: #151d24;
+      --ink: #e3ebef;
+      --muted: #9cb0ba;
+      --accent: #3db79e;
+      --line: #2a3944;
+      --panel-grad-top: #1c2730;
+      --panel-grad-bottom: #141c22;
+      --button-bg-top: #243540;
+      --button-bg-bottom: #1b2932;
+      --button-bg-top-hover: #2d4452;
+      --button-bg-bottom-hover: #233640;
+      --button-border: #466172;
+      --button-ink: #d7ece5;
+      --status-bg: #111920;
+      --plot-paper: #151d24;
+      --plot-area: #1a252d;
+      --plot-grid: #334754;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f4f5ef;
+      --bg2: #e9efe7;
+      --bg3: #eef1f6;
+      --panel: #ffffff;
+      --ink: #1f2a30;
+      --muted: #5d6d74;
+      --accent: #0c7a6a;
+      --line: #d7ddd8;
+      --panel-grad-top: #fbfcfb;
+      --panel-grad-bottom: #f7faf8;
+      --button-bg-top: #f8fdfb;
+      --button-bg-bottom: #ebf4ef;
+      --button-bg-top-hover: #f3fcf7;
+      --button-bg-bottom-hover: #e2efe8;
+      --button-border: #aac3b5;
+      --button-ink: #214b40;
+      --status-bg: #fcfdfc;
+      --plot-paper: #ffffff;
+      --plot-area: #f7f7f7;
+      --plot-grid: #d8d8d8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 10% 10%, var(--bg2) 0%, var(--bg) 45%, var(--bg3) 100%);
+      color: var(--ink);
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+      min-height: 96vh;
+    }
+
+    .panel,
+    .plot-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 6px 22px rgba(22, 36, 33, 0.07);
+      overflow: hidden;
+    }
+
+    .panel-header,
+    .plot-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--panel-grad-top), var(--panel-grad-bottom));
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: 0.01em;
+    }
+
+    .sub {
+      margin-top: 6px;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .controls {
+      padding: 12px 16px 14px;
+      display: grid;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    label {
+      font-size: 0.86rem;
+      color: var(--muted);
+      min-width: 36px;
+    }
+
+    input[type="number"],
+    input[type="text"] {
+      width: 96px;
+      padding: 8px;
+      border: 1px solid #c9d2cc;
+      border-radius: 8px;
+      font-size: 0.92rem;
+    }
+
+    .loc-row label {
+      min-width: 66px;
+    }
+
+    .loc-row input[type="text"] {
+      flex: 1 1 340px;
+      min-width: 220px;
+      width: auto;
+    }
+
+    button {
+      border: 1px solid var(--button-border);
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: linear-gradient(180deg, var(--button-bg-top), var(--button-bg-bottom));
+      color: var(--button-ink);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.86rem;
+    }
+
+    button:hover {
+      background: linear-gradient(180deg, var(--button-bg-top-hover), var(--button-bg-bottom-hover));
+    }
+
+    #map {
+      height: 430px;
+      width: 100%;
+    }
+
+    .status {
+      border-top: 1px solid var(--line);
+      padding: 10px 14px;
+      font-size: 0.86rem;
+      color: var(--muted);
+      min-height: 72px;
+      white-space: pre-line;
+      background: var(--status-bg);
+    }
+
+    .map-status {
+      display: block;
+    }
+
+    .plot-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    #plot {
+      height: 68vh;
+      min-height: 560px;
+      width: 100%;
+    }
+
+    @media (max-width: 980px) {
+      .status {
+        min-height: 96px;
+      }
+
+      #plot {
+        height: 600px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="panel">
+      <div class="panel-header">
+        <h1>Map Inputs</h1>
+        <div class="sub">Set markers by city, ZIP, or lat,lon. You can also click map once per marker, then drag to auto-refresh.</div>
+      </div>
+      <div class="controls">
+        <div class="row loc-row">
+          <label for="loc1Input">Marker 1</label>
+          <input id="loc1Input" type="text" placeholder="City, ZIP, or lat,lon" />
+          <button id="setLoc1Btn">Set Marker 1</button>
+        </div>
+        <div class="row loc-row">
+          <label for="loc2Input">Marker 2</label>
+          <input id="loc2Input" type="text" placeholder="City, ZIP, or lat,lon" />
+          <button id="setLoc2Btn">Set Marker 2</button>
+        </div>
+        <div class="row">
+          <label for="yearInput">Year</label>
+          <input id="yearInput" type="number" min="1900" max="2100" step="1" />
+          <button id="applyYearBtn">Apply Year</button>
+          <button id="themeToggleBtn">Switch to Light</button>
+          <button id="resetMarkersBtn">Reset Markers</button>
+        </div>
+        <div class="row">
+          <button id="exportPngBtn">Export PNG</button>
+          <button id="exportXlsxBtn">Export Excel</button>
+        </div>
+      </div>
+      <div class="map-status">
+        <div id="map"></div>
+        <div class="status" id="statusBox">Place marker 1, then marker 2.</div>
+      </div>
+    </section>
+
+    <section class="plot-panel">
+      <div class="plot-header">
+        <h1>Sunrise, Sunset, and Daylight Hours</h1>
+        <div class="sub" id="plotMeta">No data yet</div>
+      </div>
+      <div id="plot"></div>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tz-lookup@6.1.25/tz.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    const { DateTime } = luxon;
+
+    const state = {
+      year: new Date().getFullYear(),
+      markers: [null, null],
+      datasets: [],
+      darkMode: false
+    };
+
+    const statusBox = document.getElementById("statusBox");
+    const plotMeta = document.getElementById("plotMeta");
+    const yearInput = document.getElementById("yearInput");
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const loc1Input = document.getElementById("loc1Input");
+    const loc2Input = document.getElementById("loc2Input");
+
+    yearInput.value = String(state.year);
+
+    const map = L.map("map", { worldCopyJump: true }).setView([30, 0], 2);
+    const lightTileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    });
+    const darkTileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    });
+
+    function isLeapYear(year) {
+      return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+    }
+
+    function daysInYear(year) {
+      return isLeapYear(year) ? 366 : 365;
+    }
+
+    function toHourFloat(dateTime) {
+      if (!dateTime || !dateTime.isValid) return NaN;
+      return dateTime.hour + dateTime.minute / 60 + dateTime.second / 3600;
+    }
+
+    function formatTime(dateTime) {
+      if (!dateTime || !dateTime.isValid) return "";
+      return dateTime.toFormat("HH:mm:ss");
+    }
+
+    function altitudeDeg(dateObj, lat, lon) {
+      return SunCalc.getPosition(dateObj, lat, lon).altitude * (180 / Math.PI);
+    }
+
+    function classifySolarCondition(lat, lon, dayStart, stepMinutes = 20, epsilon = 0.1) {
+      let minAlt = Infinity;
+      let maxAlt = -Infinity;
+
+      for (let minute = 0; minute < 24 * 60; minute += stepMinutes) {
+        const sample = dayStart.plus({ minutes: minute }).toJSDate();
+        const alt = altitudeDeg(sample, lat, lon);
+        minAlt = Math.min(minAlt, alt);
+        maxAlt = Math.max(maxAlt, alt);
+      }
+
+      if (maxAlt < -epsilon) return "Polar Night";
+      if (minAlt > epsilon) return "Midnight Sun";
+      return "Normal";
+    }
+
+    function normalizeDaylight(hours) {
+      if (!Number.isFinite(hours)) return NaN;
+      let out = hours;
+      if (out < 0) out += 24;
+      if (out < 0 || out > 24) out = ((out % 24) + 24) % 24;
+      out = Math.max(0, Math.min(24, out));
+      return Math.round(out * 100) / 100;
+    }
+
+    function wrapBreak(series, threshold = 8) {
+      const out = [...series];
+      for (let i = 1; i < out.length; i += 1) {
+        const prev = out[i - 1];
+        const curr = out[i];
+        if (Number.isFinite(prev) && Number.isFinite(curr) && Math.abs(curr - prev) > threshold) {
+          out[i] = null;
+        }
+      }
+      return out.map((v) => (Number.isFinite(v) ? v : null));
+    }
+
+    function getTimezone(lat, lon) {
+      try {
+        return tzlookup(lat, lon);
+      } catch (_) {
+        return "UTC";
+      }
+    }
+
+    function validateRows(rows, year) {
+      const expected = daysInYear(year);
+      if (rows.length !== expected) {
+        throw new Error(`Expected ${expected} rows, got ${rows.length}`);
+      }
+
+      for (let i = 1; i < rows.length; i += 1) {
+        if (rows[i].Date <= rows[i - 1].Date) {
+          throw new Error("Date values are not strictly increasing");
+        }
+      }
+
+      const uniq = new Set(rows.map((r) => r.Date));
+      if (uniq.size !== rows.length) {
+        throw new Error("Duplicate dates found");
+      }
+    }
+
+    function buildLocationDataset(markerInfo, year) {
+      const lat = markerInfo.marker.getLatLng().lat;
+      const lon = markerInfo.marker.getLatLng().lng;
+      const timezone = getTimezone(lat, lon);
+
+      const start = DateTime.fromObject({ year, month: 1, day: 1 }, { zone: timezone }).startOf("day");
+      const totalDays = daysInYear(year);
+      const rows = [];
+
+      for (let i = 0; i < totalDays; i += 1) {
+        const dayStart = start.plus({ days: i });
+        let condition = classifySolarCondition(lat, lon, dayStart, 20, 0.1);
+        let sunriseText = "";
+        let sunsetText = "";
+        let sunriseFloat = NaN;
+        let sunsetFloat = NaN;
+        let daylightHours = NaN;
+
+        if (condition === "Polar Night") {
+          daylightHours = 0;
+        } else if (condition === "Midnight Sun") {
+          daylightHours = 24;
+        } else {
+          const solarBase = dayStart.set({ hour: 12 });
+          const times = SunCalc.getTimes(solarBase.toJSDate(), lat, lon);
+          const rawSunrise = times.sunrise;
+          const rawSunset = times.sunset;
+          const sunriseValid = rawSunrise instanceof Date && !Number.isNaN(rawSunrise.getTime());
+          const sunsetValid = rawSunset instanceof Date && !Number.isNaN(rawSunset.getTime());
+
+          if (sunriseValid && sunsetValid) {
+            const sunriseLocal = DateTime.fromJSDate(rawSunrise, { zone: timezone });
+            const sunsetLocal = DateTime.fromJSDate(rawSunset, { zone: timezone });
+
+            sunriseFloat = toHourFloat(sunriseLocal);
+            sunsetFloat = toHourFloat(sunsetLocal);
+            sunriseText = formatTime(sunriseLocal);
+            sunsetText = formatTime(sunsetLocal);
+            daylightHours = normalizeDaylight(sunsetFloat - sunriseFloat);
+          } else {
+            const fallback = classifySolarCondition(lat, lon, dayStart, 5, 0.05);
+            if (fallback === "Polar Night") {
+              condition = "Polar Night";
+              daylightHours = 0;
+            } else if (fallback === "Midnight Sun") {
+              condition = "Midnight Sun";
+              daylightHours = 24;
+            } else {
+              condition = "Normal";
+              daylightHours = NaN;
+            }
+          }
+        }
+
+        if (condition === "Polar Night" || condition === "Midnight Sun") {
+          sunriseText = "";
+          sunsetText = "";
+          sunriseFloat = NaN;
+          sunsetFloat = NaN;
+        }
+
+        rows.push({
+          Date: dayStart.toISODate(),
+          Sunrise: sunriseText,
+          Sunset: sunsetText,
+          "Daylight Hours": daylightHours,
+          Condition: condition,
+          Sunrise_float: sunriseFloat,
+          Sunset_float: sunsetFloat
+        });
+      }
+
+      rows.sort((a, b) => a.Date.localeCompare(b.Date));
+      validateRows(rows, year);
+
+      return {
+        id: markerInfo.id,
+        name: markerInfo.name,
+        lat,
+        lon,
+        timezone,
+        rows
+      };
+    }
+
+    function conditionSummary(rows) {
+      const counts = { Normal: 0, "Polar Night": 0, "Midnight Sun": 0 };
+      for (const row of rows) {
+        counts[row.Condition] = (counts[row.Condition] || 0) + 1;
+      }
+      return counts;
+    }
+
+    function themeValue(varName) {
+      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    }
+
+    function applyTheme() {
+      document.documentElement.setAttribute("data-theme", state.darkMode ? "dark" : "light");
+      themeToggleBtn.textContent = state.darkMode ? "Switch to Light" : "Switch to Dark";
+
+      if (state.darkMode) {
+        if (map.hasLayer(lightTileLayer)) map.removeLayer(lightTileLayer);
+        if (!map.hasLayer(darkTileLayer)) darkTileLayer.addTo(map);
+      } else {
+        if (map.hasLayer(darkTileLayer)) map.removeLayer(darkTileLayer);
+        if (!map.hasLayer(lightTileLayer)) lightTileLayer.addTo(map);
+      }
+
+      if (state.datasets.length === 2) {
+        renderPlot();
+      }
+    }
+
+    function renderPlot() {
+      if (state.datasets.length !== 2) {
+        Plotly.purge("plot");
+        plotMeta.textContent = "No data yet";
+        return;
+      }
+
+      const traces = [];
+      const palette = [
+        { day: "#1f77b4", sunrise: "#ff8c32", sunset: "#2ca02c" },
+        { day: "#d62728", sunrise: "#9467bd", sunset: "#8c564b" }
+      ];
+
+      state.datasets.forEach((set, idx) => {
+        const p = palette[idx % palette.length];
+        const x = set.rows.map((r) => r.Date);
+        const daylight = set.rows.map((r) => Number.isFinite(r["Daylight Hours"]) ? r["Daylight Hours"] : null);
+        const sunrise = wrapBreak(set.rows.map((r) => Number.isFinite(r.Sunrise_float) ? r.Sunrise_float : NaN));
+        const sunset = wrapBreak(set.rows.map((r) => Number.isFinite(r.Sunset_float) ? r.Sunset_float : NaN));
+
+        traces.push({
+          x,
+          y: daylight,
+          mode: "lines",
+          line: { color: p.day, width: 2, dash: "dash" },
+          name: `${set.name} - Daylight`,
+          connectgaps: false
+        });
+
+        traces.push({
+          x,
+          y: sunrise,
+          mode: "lines",
+          line: { color: p.sunrise, width: 2 },
+          name: `${set.name} - Sunrise`,
+          connectgaps: false
+        });
+
+        traces.push({
+          x,
+          y: sunset,
+          mode: "lines",
+          line: { color: p.sunset, width: 2 },
+          name: `${set.name} - Sunset`,
+          connectgaps: false
+        });
+
+        const finiteDay = daylight.filter((v) => Number.isFinite(v));
+        if (finiteDay.length) {
+          const maxVal = Math.max(...finiteDay);
+          const minVal = Math.min(...finiteDay);
+          const maxRow = set.rows.find((r) => r["Daylight Hours"] === maxVal);
+          const minRow = set.rows.find((r) => r["Daylight Hours"] === minVal);
+
+          if (maxRow) {
+            traces.push({
+              x: [maxRow.Date],
+              y: [maxVal],
+              mode: "markers",
+              marker: { color: "green", size: 9 },
+              name: `${set.name} Max`,
+              showlegend: false
+            });
+          }
+          if (minRow) {
+            traces.push({
+              x: [minRow.Date],
+              y: [minVal],
+              mode: "markers",
+              marker: { color: "red", size: 9 },
+              name: `${set.name} Min`,
+              showlegend: false
+            });
+          }
+        }
+      });
+
+      const layout = {
+        title: `Sunrise, Sunset, and Daylight Hours (${state.year})`,
+        margin: { l: 64, r: 24, t: 56, b: 58 },
+        paper_bgcolor: themeValue("--plot-paper"),
+        plot_bgcolor: themeValue("--plot-area"),
+        font: { color: themeValue("--ink") },
+        legend: { orientation: "v", y: 0.5, yanchor: "middle", x: 1, xanchor: "right" },
+        xaxis: {
+          title: "Month",
+          type: "date",
+          dtick: "M1",
+          tickformat: "%b",
+          showgrid: false,
+          tickfont: { color: themeValue("--ink") },
+          titlefont: { color: themeValue("--ink") }
+        },
+        yaxis: {
+          title: "Time of Day (hours)",
+          range: [-1, 25],
+          dtick: 1,
+          gridcolor: themeValue("--plot-grid"),
+          zeroline: false
+        }
+      };
+
+      Plotly.react("plot", traces, layout, { responsive: true, displaylogo: false });
+      plotMeta.textContent = `${state.datasets[0].name} vs ${state.datasets[1].name}`;
+    }
+
+    function downloadDataUrl(filename, dataUrl) {
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function timestamp() {
+      return DateTime.now().toFormat("yyyyLLdd_HHmmss");
+    }
+
+    function exportPng() {
+      if (state.datasets.length !== 2) {
+        setStatus("Place both markers before exporting PNG.");
+        return;
+      }
+
+      Plotly.toImage("plot", { format: "png", width: 1600, height: 820, scale: 1 })
+        .then((url) => {
+          downloadDataUrl(`comparison_plot_${state.year}_${timestamp()}.png`, url);
+          setStatus("PNG exported.");
+        })
+        .catch((err) => setStatus(`PNG export failed: ${err.message}`));
+    }
+
+    function exportExcel() {
+      if (state.datasets.length !== 2) {
+        setStatus("Place both markers before exporting Excel.");
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      for (const set of state.datasets) {
+        const sheetName = set.name.slice(0, 31) || `Location_${set.id}`;
+        const rows = set.rows.map((r) => ({
+          Date: r.Date,
+          Sunrise: r.Sunrise,
+          Sunset: r.Sunset,
+          "Daylight Hours": Number.isFinite(r["Daylight Hours"]) ? r["Daylight Hours"] : "",
+          Condition: r.Condition,
+          Sunrise_float: Number.isFinite(r.Sunrise_float) ? r.Sunrise_float : "",
+          Sunset_float: Number.isFinite(r.Sunset_float) ? r.Sunset_float : ""
+        }));
+        const ws = XLSX.utils.json_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      }
+
+      XLSX.writeFile(wb, `sunrise_sunset_${state.year}_${timestamp()}.xlsx`);
+      setStatus("Excel exported.");
+    }
+
+    function debounce(fn, waitMs) {
+      let t = null;
+      return (...args) => {
+        window.clearTimeout(t);
+        t = window.setTimeout(() => fn(...args), waitMs);
+      };
+    }
+
+    async function reverseLabel(lat, lon, fallback) {
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+        const resp = await fetch(url, { headers: { "Accept-Language": "en" } });
+        if (!resp.ok) return fallback;
+        const data = await resp.json();
+        const raw = data.display_name || fallback;
+        return raw.split(",")[0].trim() || fallback;
+      } catch (_) {
+        return fallback;
+      }
+    }
+
+    function setStatus(text) {
+      statusBox.textContent = text;
+    }
+
+    function markerLabel(i) {
+      return `Location ${i + 1}`;
+    }
+
+    function markerInput(index) {
+      return index === 0 ? loc1Input : loc2Input;
+    }
+
+    function allMarkersSet() {
+      return state.markers.every(Boolean);
+    }
+
+    function updateInputFromLatLon(index, lat, lon) {
+      markerInput(index).value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    }
+
+    function parseCoordinateInput(raw) {
+      const m = raw.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+      if (!m) return null;
+      const lat = Number.parseFloat(m[1]);
+      const lon = Number.parseFloat(m[2]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        throw new Error("Coordinates must be in range: lat [-90,90], lon [-180,180].");
+      }
+      return { lat, lon };
+    }
+
+    async function geocodeLocation(raw) {
+      const value = raw.trim();
+      if (!value) {
+        throw new Error("Enter a city, ZIP, or lat,lon.");
+      }
+
+      const coords = parseCoordinateInput(value);
+      if (coords) {
+        return { ...coords, label: "" };
+      }
+
+      const params = new URLSearchParams({
+        format: "jsonv2",
+        limit: "1",
+        q: value
+      });
+
+      if (/^\d{5}$/.test(value)) {
+        params.set("countrycodes", "us");
+      }
+
+      const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+      const resp = await fetch(url, { headers: { "Accept-Language": "en" } });
+      if (!resp.ok) {
+        throw new Error("Geocoding request failed.");
+      }
+
+      const data = await resp.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error(`Location not found: ${value}`);
+      }
+
+      const first = data[0];
+      const lat = Number.parseFloat(first.lat);
+      const lon = Number.parseFloat(first.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        throw new Error("Geocoding returned invalid coordinates.");
+      }
+      const label = (first.display_name || value).split(",")[0].trim() || value;
+      return { lat, lon, label };
+    }
+
+    async function refreshData() {
+      if (!allMarkersSet()) return;
+
+      try {
+        state.datasets = state.markers.map((m) => buildLocationDataset(m, state.year));
+        renderPlot();
+
+        const lines = [`Year ${state.year} ready.`];
+        for (const set of state.datasets) {
+          const c = conditionSummary(set.rows);
+          lines.push(
+            `${set.name} (${set.lat.toFixed(4)}, ${set.lon.toFixed(4)}) [${set.timezone}]\n` +
+            `Normal: ${c.Normal || 0}, Polar Night: ${c["Polar Night"] || 0}, Midnight Sun: ${c["Midnight Sun"] || 0}`
+          );
+        }
+        setStatus(lines.join("\n\n"));
+      } catch (err) {
+        setStatus(`Data generation error: ${err.message}`);
+      }
+    }
+
+    const debouncedRefresh = debounce(refreshData, 180);
+
+    function nextUnsetMarkerIndex() {
+      return state.markers.findIndex((m) => !m);
+    }
+
+    function fitMapToMarkers() {
+      if (!allMarkersSet()) return;
+      const points = state.markers.map((m) => m.marker.getLatLng());
+      const bounds = L.latLngBounds(points);
+      map.fitBounds(bounds.pad(0.35));
+    }
+
+    async function makeMarker(latlng, index) {
+      const marker = L.marker(latlng, { draggable: true }).addTo(map);
+      marker.bindTooltip(markerLabel(index), { permanent: true, direction: "top", offset: [0, -12] });
+
+      const info = {
+        id: index + 1,
+        marker,
+        name: markerLabel(index)
+      };
+
+      marker.on("drag", () => {
+        const ll = marker.getLatLng();
+        updateInputFromLatLon(index, ll.lat, ll.lng);
+        debouncedRefresh();
+      });
+
+      marker.on("dragend", async () => {
+        const ll = marker.getLatLng();
+        updateInputFromLatLon(index, ll.lat, ll.lng);
+        info.name = await reverseLabel(ll.lat, ll.lng, markerLabel(index));
+        marker.setTooltipContent(info.name);
+        await refreshData();
+      });
+
+      const initial = marker.getLatLng();
+      updateInputFromLatLon(index, initial.lat, initial.lng);
+      info.name = await reverseLabel(initial.lat, initial.lng, markerLabel(index));
+      marker.setTooltipContent(info.name);
+      return info;
+    }
+
+    async function setMarkerAt(index, lat, lon, preferredLabel = "") {
+      const latlng = L.latLng(lat, lon);
+      let info = state.markers[index];
+
+      if (!info) {
+        info = await makeMarker(latlng, index);
+        state.markers[index] = info;
+      } else {
+        info.marker.setLatLng(latlng);
+      }
+
+      updateInputFromLatLon(index, lat, lon);
+      if (preferredLabel && preferredLabel.trim()) {
+        info.name = preferredLabel.trim();
+      } else {
+        info.name = await reverseLabel(lat, lon, markerLabel(index));
+      }
+      info.marker.setTooltipContent(info.name);
+
+      if (allMarkersSet()) {
+        fitMapToMarkers();
+        await refreshData();
+      } else {
+        const next = nextUnsetMarkerIndex();
+        setStatus(`Marker ${index + 1} set. Set marker ${next + 1}.`);
+        map.setView(latlng, Math.max(map.getZoom(), 3));
+      }
+    }
+
+    async function setMarkerFromInput(index) {
+      const raw = markerInput(index).value.trim();
+      if (!raw) {
+        setStatus(`Enter a city, ZIP, or lat,lon for marker ${index + 1}.`);
+        return;
+      }
+
+      try {
+        setStatus(`Resolving marker ${index + 1}...`);
+        const target = await geocodeLocation(raw);
+        await setMarkerAt(index, target.lat, target.lon, target.label);
+      } catch (err) {
+        setStatus(`Marker ${index + 1} error: ${err.message}`);
+      }
+    }
+
+    map.on("click", async (event) => {
+      const idx = nextUnsetMarkerIndex();
+      if (idx === -1) {
+        setStatus("Both markers are already set. Drag markers or use text inputs to move them.");
+        return;
+      }
+      await setMarkerAt(idx, event.latlng.lat, event.latlng.lng);
+    });
+
+    document.getElementById("applyYearBtn").addEventListener("click", async () => {
+      const val = Number.parseInt(yearInput.value, 10);
+      if (!Number.isFinite(val) || val < 1900 || val > 2100) {
+        setStatus("Year must be between 1900 and 2100.");
+        return;
+      }
+      state.year = val;
+      await refreshData();
+    });
+
+    document.getElementById("resetMarkersBtn").addEventListener("click", () => {
+      state.markers.filter(Boolean).forEach((m) => map.removeLayer(m.marker));
+      state.markers = [null, null];
+      state.datasets = [];
+      loc1Input.value = "";
+      loc2Input.value = "";
+      renderPlot();
+      setStatus("Markers reset. Place marker 1, then marker 2.");
+    });
+
+    document.getElementById("setLoc1Btn").addEventListener("click", async () => setMarkerFromInput(0));
+    document.getElementById("setLoc2Btn").addEventListener("click", async () => setMarkerFromInput(1));
+    loc1Input.addEventListener("keydown", async (event) => {
+      if (event.key === "Enter") await setMarkerFromInput(0);
+    });
+    loc2Input.addEventListener("keydown", async (event) => {
+      if (event.key === "Enter") await setMarkerFromInput(1);
+    });
+
+    themeToggleBtn.addEventListener("click", () => {
+      state.darkMode = !state.darkMode;
+      applyTheme();
+    });
+
+    document.getElementById("exportPngBtn").addEventListener("click", exportPng);
+    document.getElementById("exportXlsxBtn").addEventListener("click", exportExcel);
+
+    applyTheme();
+    window.setTimeout(() => map.invalidateSize(), 0);
+    renderPlot();
+  </script>
+</body>
+</html>
